@@ -21,29 +21,61 @@ class SimParams:
 
 
 @njit(cache=True)
-def random_positions_jit(N: int, L: float, a: float, seed: int) -> np.ndarray:
+def random_positions_jit(
+    N: int,
+    L: float,
+    a: float,
+    seed: int,
+    mode: int = 1,   # 0=uniform, 1=random
+) -> np.ndarray:
     np.random.seed(seed)
-    free_space = L - N * a
-    if free_space < 0:
-        raise ValueError(
-            f"Not enough space to place {N} particles with minimum spacing {a} in length {L}."
-        )
-    
-    y = np.empty(N)
-    for i in range(N):
-        y[i] = np.random.uniform(0, free_space)
-    y.sort()
-    
-    x = np.empty(N)
-    for i in range(N):
-        x[i] = y[i] + i * a
-        
-    shift = np.random.uniform(0, L)
-    for i in range(N):
-        x[i] = (x[i] + shift) % L
-        
-    x.sort()
-    return x
+
+    if mode == 0:
+        # Uniform spacing
+        x = np.empty(N)
+        spacing = L / N
+
+        for i in range(N):
+            x[i] = i * spacing
+
+        shift = np.random.uniform(0.0, L)
+        for i in range(N):
+            x[i] = (x[i] + shift) % L
+
+        x.sort()
+        return x
+
+    else:
+        # Random spacing
+        free_space = L - N * a
+
+        if free_space < 0:
+            raise ValueError(
+                f"Not enough space to place {N} particles with spacing {a} in length {L}."
+            )
+
+        y = np.empty(N)
+        total = 0.0
+
+        for i in range(N):
+            y[i] = np.random.random()
+            total += y[i]
+
+        for i in range(N):
+            y[i] = y[i] / total * free_space
+
+        x = np.empty(N)
+        x[0] = 0.0
+
+        for i in range(1, N):
+            x[i] = x[i-1] + a + y[i-1]
+
+        shift = np.random.uniform(0.0, L)
+        for i in range(N):
+            x[i] = (x[i] + shift) % L
+
+        x.sort()
+        return x
 
 @njit(cache=True)
 def simulate_hard_body_jit(
@@ -58,6 +90,7 @@ def simulate_hard_body_jit(
     
     x = random_positions_jit(N, L, a, seed)
     v = np.zeros(N)
+    x_phys = x.copy()
     
     v0 = np.empty(N)
     for i in range(N):
@@ -132,13 +165,13 @@ def simulate_remote_action_jit(
     
     x = random_positions_jit(N, L, a, seed)
     v = np.zeros(N)
+    x_phys = x.copy()
     
     v0 = np.empty(N)
     for i in range(N):
         v_rand = np.random.normal(v0_mean, v0_std)
         v0[i] = max(v_rand, 0.05)
         
-    xs_new = np.empty(N)
     vs_new = np.empty(N)
     gaps = np.empty(N)
     
@@ -174,11 +207,12 @@ def simulate_remote_action_jit(
                 vn = 0.0
                 
             vs_new[i] = vn
-            xs_new[i] = (xs[i] + vn * dt) % L
             
         for i in range(N):
-            x[idx[i]] = xs_new[i]
-            v[idx[i]] = vs_new[i]
+            phys_idx = idx[i]
+            x_phys[phys_idx] += vs_new[i] * dt
+            x[phys_idx] = x_phys[phys_idx] % L
+            v[phys_idx] = vs_new[i]
             
         if step >= relax_steps:
             sum_v = 0.0
@@ -207,13 +241,13 @@ def simulate_remote_action_trajectory(
     
     x = random_positions_jit(N, L, a, seed)
     v = np.zeros(N)
+    x_phys = x.copy()
     
     v0 = np.empty(N)
     for i in range(N):
         v_rand = np.random.normal(v0_mean, v0_std)
         v0[i] = max(v_rand, 0.05)
         
-    xs_new = np.empty(N)
     vs_new = np.empty(N)
     gaps = np.empty(N)
     
@@ -255,11 +289,12 @@ def simulate_remote_action_trajectory(
                 vn = 0.0
                 
             vs_new[i] = vn
-            xs_new[i] = (xs[i] + vn * dt) % L
             
         for i in range(N):
-            x[idx[i]] = xs_new[i]
-            v[idx[i]] = vs_new[i]
+            phys_idx = idx[i]
+            x_phys[phys_idx] += vs_new[i] * dt
+            x[phys_idx] = x_phys[phys_idx] % L
+            v[phys_idx] = vs_new[i]
             
         if step >= relax_steps:
 
@@ -273,10 +308,8 @@ def simulate_remote_action_trajectory(
 
                 row = vel_idx // save_stride
 
-                idx2 = np.argsort(x)
-
                 for i in range(N):
-                    trajectory[row, i] = x[idx2[i]]
+                    trajectory[row, i] = x_phys[i]
 
             vel_idx += 1
                     
