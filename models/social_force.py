@@ -1,4 +1,5 @@
 import numpy as np
+from numba import njit
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -19,150 +20,306 @@ class SimParams:
     seed: int = 42
 
 
-def random_positions(N: int, L: float, a: float, rng: np.random.Generator) -> np.ndarray:
+@njit(cache=True)
+def random_positions_jit(N: int, L: float, a: float, seed: int) -> np.ndarray:
+    np.random.seed(seed)
     free_space = L - N * a
     if free_space < 0:
         raise ValueError(
             f"Not enough space to place {N} particles with minimum spacing {a} in length {L}."
         )
     
-    y = rng.uniform(0, free_space, N)
+    y = np.empty(N)
+    for i in range(N):
+        y[i] = np.random.uniform(0, free_space)
     y.sort()
     
-    x = y + np.arange(N) * a
-    
-    shift = rng.uniform(0, L)
-    x = (x + shift) % L
-    
-    return np.sort(x)
+    x = np.empty(N)
+    for i in range(N):
+        x[i] = y[i] + i * a
+        
+    shift = np.random.uniform(0, L)
+    for i in range(N):
+        x[i] = (x[i] + shift) % L
+        
+    x.sort()
+    return x
 
-
-def simulate_hard_body(params: SimParams) -> Tuple[float, np.ndarray]:
+@njit(cache=True)
+def simulate_hard_body_jit(
+    N: int, L: float, dt: float, relax_steps: int, measure_steps: int, # Fixed spelling here
+    v0_mean: float, v0_std: float, tau: float, a: float, b: float, seed: int
+) -> Tuple[float, np.ndarray]:
     """
     Hard body without remote action.
     Predict-Correct / Rollback
     """
-    rng = np.random.default_rng(params.seed)
-    N, L, dt = params.N, params.L, params.dt
-    a, b, tau = params.a, params.b, params.tau
-
-    x = random_positions(N, L, a, rng)
+    np.random.seed(seed)
+    
+    x = random_positions_jit(N, L, a, seed)
     v = np.zeros(N)
-    v0 = rng.normal(params.v0_mean, params.v0_std, N).clip(0.05)
+    
+    v0 = np.empty(N)
+    for i in range(N):
+        v_rand = np.random.normal(v0_mean, v0_std)
+        v0[i] = max(v_rand, 0.05)
+        
+    x_pred = np.empty(N)
+    v_pred = np.empty(N)
+    gaps = np.empty(N)
+    
+    vel_rec = np.empty(measure_steps)
+    vel_idx = 0
+    total_steps = relax_steps + measure_steps
+    
+    for step in range(total_steps):
+        idx = np.argsort(x)
+        xs = x[idx]
+        vs = v[idx]
+        v0s = v0[idx]
+        
+        # 1. Dự đoán bằng vòng lặp explicit (Numba chạy cực nhanh)
+        for i in range(N):
+            acc = (v0s[i] - vs[i]) / tau
+            vp = vs[i] + acc * dt
+            if vp < 0.0: vp = 0.0
+            if vp > v0s[i]: vp = v0s[i]
+            v_pred[i] = vp
+            x_pred[i] = xs[i] + vp * dt
+            
+        # 2. Xử lý va chạm
+        changed = True
+        while changed:
+            changed = False
+            
+            for i in range(N - 1):
+                gaps[i] = x_pred[i+1] - x_pred[i]
+            gaps[N-1] = L - x_pred[N-1] + x_pred[0]
+            
+            for i in range(N):
+                d_req = a + b * v_pred[i]
+                if gaps[i] <= d_req:
+                    if x_pred[i] != xs[i] or v_pred[i] > 0.0:
+                        x_pred[i] = xs[i]
+                        v_pred[i] = 0.0
+                        changed = True
+                        
+        # 3. Commit state
+        for i in range(N):
+            x[idx[i]] = x_pred[i] % L
+            v[idx[i]] = v_pred[i]
+            
+        if step >= relax_steps:
+            sum_v = 0.0
+            for i in range(N):
+                sum_v += v_pred[i]
+            vel_rec[vel_idx] = sum_v / N
+            vel_idx += 1
+            
+    sum_rec = 0.0
+    for i in range(measure_steps):
+        sum_rec += vel_rec[i]
+        
+    return sum_rec / measure_steps, vel_rec
 
-    vel_rec = []
-    total_steps = params.relax_steps + params.measure_steps
+@njit(cache=True)
+def simulate_remote_action_jit(
+    N: int, L: float, dt: float, relax_steps: int, measure_steps: int,
+    v0_mean: float, v0_std: float, tau: float, a: float, b: float, e: float, f: float, seed: int
+) -> Tuple[float, np.ndarray]:
+    """Mô hình 2: Lực tác dụng từ xa (Explicit Euler)"""
+    np.random.seed(seed)
+    
+    x = random_positions_jit(N, L, a, seed)
+    v = np.zeros(N)
+    
+    v0 = np.empty(N)
+    for i in range(N):
+        v_rand = np.random.normal(v0_mean, v0_std)
+        v0[i] = max(v_rand, 0.05)
+        
+    xs_new = np.empty(N)
+    vs_new = np.empty(N)
+    gaps = np.empty(N)
+    
+    vel_rec = np.empty(measure_steps)
+    vel_idx = 0
+    total_steps = relax_steps + measure_steps
+    
+    for step in range(total_steps):
+        idx = np.argsort(x)
+        xs = x[idx]
+        vs = v[idx]
+        v0s = v0[idx]
+        
+        for i in range(N - 1):
+            gaps[i] = xs[i+1] - xs[i]
+        gaps[N-1] = L - xs[N-1] + xs[0]
+        
+        for i in range(N):
+            d_req = a + b * vs[i]
+            eff = gaps[i] - d_req
+            if eff < 1e-4: 
+                eff = 1e-4
+                
+            G = (v0s[i] - vs[i]) / tau - e * (1.0 / eff) ** f
+            
+            if vs[i] > 0.0:
+                F = G
+            else:
+                F = max(G, 0.0)
+                
+            vn = vs[i] + F * dt
+            if vn < 0.0: 
+                vn = 0.0
+                
+            vs_new[i] = vn
+            xs_new[i] = (xs[i] + vn * dt) % L
+            
+        for i in range(N):
+            x[idx[i]] = xs_new[i]
+            v[idx[i]] = vs_new[i]
+            
+        if step >= relax_steps:
+            sum_v = 0.0
+            for i in range(N):
+                sum_v += vs_new[i]
+            vel_rec[vel_idx] = sum_v / N
+            vel_idx += 1
+            
+    sum_rec = 0.0
+    for i in range(measure_steps):
+        sum_rec += vel_rec[i]
+        
+    return sum_rec / measure_steps, vel_rec
+
+
+@njit(cache=True)
+def simulate_remote_action_trajectory(
+    N, L, dt,
+    relax_steps,
+    measure_steps,
+    v0_mean, v0_std,
+    tau, a, b, e, f, seed
+):
+    """Mô hình 2: Lực tác dụng từ xa (Explicit Euler)"""
+    np.random.seed(seed)
+    
+    x = random_positions_jit(N, L, a, seed)
+    v = np.zeros(N)
+    
+    v0 = np.empty(N)
+    for i in range(N):
+        v_rand = np.random.normal(v0_mean, v0_std)
+        v0[i] = max(v_rand, 0.05)
+        
+    xs_new = np.empty(N)
+    vs_new = np.empty(N)
+    gaps = np.empty(N)
+    
+    vel_rec = np.empty(measure_steps)
+    vel_idx = 0
+    total_steps = relax_steps + measure_steps
+    
+    save_stride = 10
+
+    trajectory = np.empty(
+        (measure_steps // save_stride + 1, N)
+    )
 
     for step in range(total_steps):
         idx = np.argsort(x)
         xs = x[idx]
         vs = v[idx]
         v0s = v0[idx]
-
-        acc = (v0s - vs) / tau
-        v_pred = np.clip(vs + acc * dt, 0, v0s)
         
-        x_pred = xs + v_pred * dt
-
-        changed = True
-        while changed:
-            changed = False
+        for i in range(N - 1):
+            gaps[i] = xs[i+1] - xs[i]
+        gaps[N-1] = L - xs[N-1] + xs[0]
+        
+        for i in range(N):
+            d_req = a + b * vs[i]
+            eff = gaps[i] - d_req
+            if eff < 1e-4: 
+                eff = 1e-4
+                
+            G = (v0s[i] - vs[i]) / tau - e * (1.0 / eff) ** f
             
-            gaps = np.empty(N)
-            gaps[:-1] = x_pred[1:] - x_pred[:-1]
-            gaps[-1] = L - x_pred[-1] + x_pred[0]
+            if vs[i] > 0.0:
+                F = G
+            else:
+                F = max(G, 0.0)
+                
+            vn = vs[i] + F * dt
+            if vn < 0.0: 
+                vn = 0.0
+                
+            vs_new[i] = vn
+            xs_new[i] = (xs[i] + vn * dt) % L
+            
+        for i in range(N):
+            x[idx[i]] = xs_new[i]
+            v[idx[i]] = vs_new[i]
+            
+        if step >= relax_steps:
 
-            d_req = a + b * v_pred
-            collision = gaps <= d_req
-            coll_idx = np.where(collision)[0]
+            sum_v = 0.0
+            for i in range(N):
+                sum_v += vs_new[i]
 
-            if len(coll_idx) > 0:
-                for i in coll_idx:
-                    if x_pred[i] != xs[i] or v_pred[i] > 0:
-                        x_pred[i] = xs[i]
-                        v_pred[i] = 0.0
-                        changed = True
+            vel_rec[vel_idx] = sum_v / N
 
-        x[idx] = x_pred % L
-        v[idx] = v_pred
+            if vel_idx % save_stride == 0:
 
-        if step >= params.relax_steps:
-            vel_rec.append(np.mean(v_pred))
+                row = vel_idx // save_stride
 
-    return float(np.mean(vel_rec)), np.array(vel_rec)
+                idx2 = np.argsort(x)
 
+                for i in range(N):
+                    trajectory[row, i] = x[idx2[i]]
 
-def simulate_remote_action(params: SimParams) -> Tuple[float, np.ndarray]:
-    """
-    Hard bodies with remote action
-    """
-    rng = np.random.default_rng(params.seed)
-    N, L, dt = params.N, params.L, params.dt
-    a, b, tau = params.a, params.b, params.tau
-    e, f = params.e, params.f
-
-    x = random_positions(N, L, a, rng)
-    v = np.zeros(N)
-    v0 = rng.normal(params.v0_mean, params.v0_std, N).clip(0.05)
-
-    vel_rec = []
-    total_steps = params.relax_steps + params.measure_steps
-
-    for step in range(total_steps):
-        idx = np.argsort(x)
-        xs, vs, v0s = x[idx], v[idx], v0[idx]
-
-        gaps = np.empty(N)
-        gaps[:-1] = xs[1:] - xs[:-1]
-        gaps[-1] = L - xs[-1] + xs[0]
+            vel_idx += 1
+                    
+    sum_rec = 0.0
+    for i in range(measure_steps):
+        sum_rec += vel_rec[i]
         
-        d_req = a + b * vs
-        eff = np.maximum(gaps - d_req, 1e-4)
-        
-        G = (v0s - vs) / tau - e * (1.0 / eff) ** f
-        
-        F = np.where(vs > 0, G, np.maximum(G, 0.0))
-
-        vs_new = np.maximum(vs + F * dt, 0.0)
-        xs_new = (xs + vs_new * dt) % L
-
-        x[idx] = xs_new
-        v[idx] = vs_new
-
-        if step >= params.relax_steps:
-            vel_rec.append(np.mean(vs_new))
-
-    return float(np.mean(vel_rec)), np.array(vel_rec)
+    return (
+        sum_rec / measure_steps,
+        vel_rec,
+        trajectory
+    )
 
 
-def fundamental_diagram(
-    model="hard_body",
-    density_values=None,
-    base_params=None,
-    L=17.3,
-) -> Tuple[np.ndarray, np.ndarray]:
+def fundamental_diagram(model="hard_body", density_values=None, base_params=None) -> Tuple[np.ndarray, np.ndarray]:
+    """Hàm wrapper để bóc tách SimParams và gọi Numba."""
     if density_values is None:
         density_values = np.linspace(0.2, 2.5, 15)
     if base_params is None:
         base_params = SimParams()
         
     velocities = []
+    
+    # Ép kiểu Numba biên dịch 1 lần mồi (Warm-up)
+    print(f"  [Đang biên dịch JIT cho {model} ...]")
+    
     for rho in density_values:
-        N = max(2, int(round(rho * L)))
+        N = max(2, int(round(rho * base_params.L)))
+        p = base_params
         
-        p = SimParams(
-            L=L, N=N, dt=base_params.dt,
-            relax_steps=base_params.relax_steps,
-            measure_steps=base_params.measure_steps,
-            v0_mean=base_params.v0_mean, v0_std=base_params.v0_std,
-            tau=base_params.tau, a=base_params.a, b=base_params.b,
-            e=base_params.e, f=base_params.f, seed=base_params.seed,
-        )
-        
-        fn = simulate_hard_body if model == "hard_body" else simulate_remote_action
-        v_mean, _ = fn(p)
+        if model == "hard_body":
+            v_mean, _ = simulate_hard_body_jit(
+                N, p.L, p.dt, p.relax_steps, p.measure_steps,
+                p.v0_mean, p.v0_std, p.tau, p.a, p.b, p.seed
+            )
+        else:
+            v_mean, _ = simulate_remote_action_jit(
+                N, p.L, p.dt, p.relax_steps, p.measure_steps,
+                p.v0_mean, p.v0_std, p.tau, p.a, p.b, p.e, p.f, p.seed
+            )
+            
         velocities.append(v_mean)
-        print(f"Mật độ rho = {rho:.2f} (N={N}) -> Vận tốc trung bình v = {v_mean:.3f} m/s")
+        print(f"  [rho ρ={rho:.2f}] v_mean = {v_mean:.3f} m/s")
         
     return density_values, np.array(velocities)
 
