@@ -85,8 +85,8 @@ def convert_points(data_points, px_to_real):
 
 
 def save_numpy_arrays(output_path, rho_values, v_values):
-    rho_str = ", ".join(f"{value:.4f}" for value in rho_values)
-    v_str = ", ".join(f"{value:.4f}" for value in v_values)
+    rho_str = ", ".join(f"{value:.2f}" for value in rho_values)
+    v_str = ", ".join(f"{value:.2f}" for value in v_values)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("import numpy as np\n\n")
@@ -104,7 +104,7 @@ def save_numpy_arrays(output_path, rho_values, v_values):
 
 def main():
     image_path = "models/empirical_data.png"
-    output_path = "empirical_data_points.py"
+    output_path = "models/empirical.py"
 
     image = load_image(image_path)
 
