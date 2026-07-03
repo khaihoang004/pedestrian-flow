@@ -1,100 +1,127 @@
+import sys
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-import numpy as np
-import sys
 
-def main(image_path):
+
+def load_image(image_path):
     try:
-        img = mpimg.imread(image_path)
+        return mpimg.imread(image_path)
     except FileNotFoundError:
-        print(f"❌ Không tìm thấy file ảnh: {image_path}")
+        print(f"Error: image file not found: {image_path}")
         sys.exit(1)
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    ax.imshow(img)
-    ax.axis('off')  # Ẩn trục tọa độ pixel của ảnh
 
-    # ---------------------------------------------------------
-    # 1. LẤY CÁC ĐIỂM CHUẨN (CALIBRATION)
-    # ---------------------------------------------------------
-    print("="*60)
-    print("📍 BƯỚC 1: ĐỊNH CHUẨN TRỤC TỌA ĐỘ")
-    print("Vui lòng click vào màn hình hình ảnh theo ĐÚNG thứ tự 4 điểm sau:")
-    print("  1. Điểm bắt đầu của trục X (ví dụ: x = 0)")
-    print("  2. Điểm kết thúc của trục X (ví dụ: x = 3)")
-    print("  3. Điểm bắt đầu của trục Y (ví dụ: y = 0)")
-    print("  4. Điểm cao nhất của trục Y (ví dụ: y = 1.4)")
-    
-    plt.title("Bước 1: Click 4 điểm chuẩn: X_min, X_max, Y_min, Y_max")
-    
-    # Lấy 4 điểm click từ người dùng
-    refs = plt.ginput(4, timeout=-1, show_clicks=True)
-    if len(refs) < 4:
-        print("❌ Bạn chưa click đủ 4 điểm chuẩn. Đang thoát...")
+def get_calibration_points(ax):
+    print("=" * 60)
+    print("Step 1: Axis calibration")
+    print("Click the following 4 reference points in order:")
+    print("  1. X-axis minimum point")
+    print("  2. X-axis maximum point")
+    print("  3. Y-axis minimum point")
+    print("  4. Y-axis maximum point")
+
+    ax.set_title("Step 1: Click X_min, X_max, Y_min, Y_max")
+    points = plt.ginput(4, timeout=-1, show_clicks=True)
+
+    if len(points) < 4:
+        print("Error: fewer than 4 calibration points were selected.")
         sys.exit(1)
 
-    px_x_min, _ = refs[0]
-    px_x_max, _ = refs[1]
-    _, px_y_min = refs[2] # Lưu ý: Trong ảnh, Y pixel tăng từ trên xuống dưới
-    _, px_y_max = refs[3]
+    return points
 
-    print("\nNhập giá trị thực tế của các điểm bạn vừa click:")
-    val_x_min = float(input("  > Giá trị thực của X_min (vd 0): "))
-    val_x_max = float(input("  > Giá trị thực của X_max (vd 3): "))
-    val_y_min = float(input("  > Giá trị thực của Y_min (vd 0): "))
-    val_y_max = float(input("  > Giá trị thực của Y_max (vd 1.4): "))
 
-    # Hàm chuyển đổi pixel sang tọa độ thực
+def get_axis_values():
+    print("\nEnter the real values of the selected reference points:")
+    x_min = float(input("  X_min: "))
+    x_max = float(input("  X_max: "))
+    y_min = float(input("  Y_min: "))
+    y_max = float(input("  Y_max: "))
+    return x_min, x_max, y_min, y_max
+
+
+def build_pixel_to_real_transform(ref_points, axis_values):
+    px_x_min, _ = ref_points[0]
+    px_x_max, _ = ref_points[1]
+    _, px_y_min = ref_points[2]
+    _, px_y_max = ref_points[3]
+
+    x_min, x_max, y_min, y_max = axis_values
+
     def px_to_real(px, py):
-        real_x = val_x_min + (px - px_x_min) * (val_x_max - val_x_min) / (px_x_max - px_x_min)
-        real_y = val_y_min + (py - px_y_min) * (val_y_max - val_y_min) / (px_y_max - px_y_min)
+        real_x = x_min + (px - px_x_min) * (x_max - x_min) / (px_x_max - px_x_min)
+        real_y = y_min + (py - px_y_min) * (y_max - y_min) / (px_y_max - px_y_min)
         return real_x, real_y
 
-    # ---------------------------------------------------------
-    # 2. LẤY DỮ LIỆU THỰC NGHIỆM (DIGITIZING)
-    # ---------------------------------------------------------
-    print("\n" + "="*60)
-    print("🎯 BƯỚC 2: TRÍCH XUẤT DỮ LIỆU")
-    print("Click chuột TRÁI vào các chấm dữ liệu trên đồ thị.")
-    print("Nhấn chuột GIỮA (nút cuộn) hoặc phím ENTER để kết thúc việc lấy điểm.")
-    plt.title("Bước 2: Click vào các chấm dữ liệu. Nhấn Enter để hoàn tất.")
-    
-    data_points = plt.ginput(-1, timeout=-1, show_clicks=True, mouse_stop=2) # mouse_stop=2 là chuột giữa
-    plt.close()
+    return px_to_real
 
-    if not data_points:
-        print("❌ Không có điểm dữ liệu nào được chọn.")
+
+def get_data_points(ax):
+    print("\n" + "=" * 60)
+    print("Step 2: Data extraction")
+    print("Left-click to select data points on the plot.")
+    print("Press Enter or middle-click to finish.")
+
+    ax.set_title("Step 2: Click data points, then press Enter to finish")
+    points = plt.ginput(-1, timeout=-1, show_clicks=True, mouse_stop=2)
+
+    if not points:
+        print("No data points were selected.")
         sys.exit(0)
 
-    # Tính toán tọa độ thực
-    rho_list = []
-    v_list = []
-    for px, py in data_points:
-        real_x, real_y = px_to_real(px, py)
-        rho_list.append(real_x)
-        v_list.append(real_y)
+    return points
 
-    # ---------------------------------------------------------
-    # 3. XUẤT KẾT QUẢ RA CODE PYTHON
-    # ---------------------------------------------------------
-    print("\n" + "="*60)
-    print("✅ HOÀN TẤT! COPY ĐOẠN CODE DƯỚI ĐÂY VÀO FILE CỦA BẠN:")
-    print("="*60)
-    
-    # Format string sao cho đẹp giống numpy array
-    rho_str = ", ".join([f"{val:.2f}" for val in rho_list])
-    v_str = ", ".join([f"{val:.2f}" for val in v_list])
-    
-    print("import numpy as np\n")
-    print("EMPIRICAL_RHO = np.array([")
-    print(f"    {rho_str}")
-    print("])\n")
-    print("EMPIRICAL_V = np.array([")
-    print(f"    {v_str}")
-    print("])\n")
+
+def convert_points(data_points, px_to_real):
+    rho_values = []
+    v_values = []
+
+    for px, py in data_points:
+        rho, v = px_to_real(px, py)
+        rho_values.append(rho)
+        v_values.append(v)
+
+    return np.array(rho_values), np.array(v_values)
+
+
+def save_numpy_arrays(output_path, rho_values, v_values):
+    rho_str = ", ".join(f"{value:.4f}" for value in rho_values)
+    v_str = ", ".join(f"{value:.4f}" for value in v_values)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("import numpy as np\n\n")
+        f.write("EMPIRICAL_RHO = np.array([\n")
+        f.write(f"    {rho_str}\n")
+        f.write("])\n\n")
+        f.write("EMPIRICAL_V = np.array([\n")
+        f.write(f"    {v_str}\n")
+        f.write("])\n")
+
+    print("\n" + "=" * 60)
+    print(f"Saved extracted data to: {output_path}")
+    print("=" * 60)
+
+
+def main():
+    image_path = "models/empirical_data.png"
+    output_path = "empirical_data_points.py"
+
+    image = load_image(image_path)
+
+    fig, ax = plt.subplots(figsize=(10, 7))
+    ax.imshow(image)
+    ax.axis("off")
+
+    ref_points = get_calibration_points(ax)
+    axis_values = get_axis_values()
+    px_to_real = build_pixel_to_real_transform(ref_points, axis_values)
+
+    data_points = get_data_points(ax)
+    plt.close(fig)
+
+    rho_values, v_values = convert_points(data_points, px_to_real)
+    save_numpy_arrays(output_path, rho_values, v_values)
 
 
 if __name__ == "__main__":
-    # Thay 'hinh_cua_ban.png' bằng đường dẫn tới ảnh bạn cắt từ bài báo
-    image_file = "models/empirical_data.png"
-    main(image_file)
+    main()
