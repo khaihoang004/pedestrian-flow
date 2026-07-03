@@ -160,7 +160,6 @@ def simulate_remote_action_jit(
     N: int, L: float, dt: float, relax_steps: int, measure_steps: int,
     v0_mean: float, v0_std: float, tau: float, a: float, b: float, e: float, f: float, seed: int
 ) -> Tuple[float, np.ndarray]:
-    """Mô hình 2: Lực tác dụng từ xa (Explicit Euler)"""
     np.random.seed(seed)
     
     x = random_positions_jit(N, L, a, seed)
@@ -236,7 +235,6 @@ def simulate_remote_action_trajectory(
     v0_mean, v0_std,
     tau, a, b, e, f, seed
 ):
-    """Mô hình 2: Lực tác dụng từ xa (Explicit Euler)"""
     np.random.seed(seed)
     
     x = random_positions_jit(N, L, a, seed)
@@ -333,9 +331,6 @@ def fundamental_diagram(model="hard_body", density_values=None, base_params=None
         
     velocities = []
     
-    # Ép kiểu Numba biên dịch 1 lần mồi (Warm-up)
-    print(f"  [Đang biên dịch JIT cho {model} ...]")
-    
     for rho in density_values:
         N = max(2, int(round(rho * base_params.L)))
         p = base_params
@@ -357,5 +352,4 @@ def fundamental_diagram(model="hard_body", density_values=None, base_params=None
     return density_values, np.array(velocities)
 
 if __name__ == "__main__":
-    print("--- ĐANG CHẠY MÔ PHỎNG HARD BODY ---")
     rhos, vels = fundamental_diagram(model="hard_body")
