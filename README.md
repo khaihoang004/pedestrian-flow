@@ -1,8 +1,7 @@
-# Pedestrian Flow Reproduction
+# Pedestrian Flow
 
 This project reproduces and analyzes the pedestrian flow experiments based on the hard-body and remote-action models, following the setup of Seyfried et al. (2006).
 
----
 
 ## Project Structure
 
@@ -14,6 +13,7 @@ pedestrian-flow/
 │  └─ plotting.py        # main script to run experiments and generate figures
 ├─ models/
 │  ├─ empirical.py       # empirical reference data / empirical velocity curve
+│  ├─ empirical_data.png # source image for empirical data extraction
 │  └─ social_force.py    # simulation models and core numerical routines
 │  └─ plot_digitizer.py
 ├─ results/              # default generated figures folder path
@@ -21,7 +21,6 @@ pedestrian-flow/
 └─ README.md
 ```
 
----
 
 ## Requirements
 
@@ -32,7 +31,6 @@ pedestrian-flow/
 pip install -r requirements.txt
 ```
 
----
 
 ## How to Run
 
@@ -62,9 +60,24 @@ By default, the output directory is:
 results/
 ```
 This folder already contains the figures generated from our experimental setup.  
-When you run new experiments, the newly generated figures will also be saved to the same folder.
+When you run new experiments, the newly generated figures will also be saved to the same folder. Generated figures output directory specified in `analysis/config.py`.
 
----
 
-## Notes
 
+## Extracting empirical data
+
+The script `models/plot_digitizer.py` is used to digitize empirical data points from a plot image and save them to `models/empirical.py`.
+
+### Run the digitizer
+
+Using the default image:
+
+```bash
+python -m models.plot_digitizer
+```
+
+Using a custom image:
+
+```bash
+python -m models.plot_digitizer path/to/your_image.png
+```
