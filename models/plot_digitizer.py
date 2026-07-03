@@ -1,10 +1,14 @@
 import sys
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
+OUTPUT_PATH = Path("models/empirical.py")
 
-def load_image(image_path):
+
+def load_image(image_path: str):
     try:
         return mpimg.imread(image_path)
     except FileNotFoundError:
@@ -74,38 +78,42 @@ def get_data_points(ax):
 
 def convert_points(data_points, px_to_real):
     rho_values = []
-    v_values = []
+    velocity_values = []
 
     for px, py in data_points:
-        rho, v = px_to_real(px, py)
+        rho, velocity = px_to_real(px, py)
         rho_values.append(rho)
-        v_values.append(v)
+        velocity_values.append(velocity)
 
-    return np.array(rho_values), np.array(v_values)
+    return np.array(rho_values), np.array(velocity_values)
 
 
-def save_numpy_arrays(output_path, rho_values, v_values):
+def save_numpy_arrays(rho_values, velocity_values):
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
     rho_str = ", ".join(f"{value:.2f}" for value in rho_values)
-    v_str = ", ".join(f"{value:.2f}" for value in v_values)
+    velocity_str = ", ".join(f"{value:.2f}" for value in velocity_values)
 
-    with open(output_path, "w", encoding="utf-8") as f:
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write("import numpy as np\n\n")
         f.write("EMPIRICAL_RHO = np.array([\n")
         f.write(f"    {rho_str}\n")
         f.write("])\n\n")
         f.write("EMPIRICAL_V = np.array([\n")
-        f.write(f"    {v_str}\n")
+        f.write(f"    {velocity_str}\n")
         f.write("])\n")
 
     print("\n" + "=" * 60)
-    print(f"Saved extracted data to: {output_path}")
+    print(f"Saved extracted data to: {OUTPUT_PATH}")
     print("=" * 60)
 
 
 def main():
-    image_path = "models/empirical_data.png"
-    output_path = "models/empirical.py"
+    if len(sys.argv) > 2:
+        print("Usage: python -m models.plot_digitizer [image_path]")
+        sys.exit(1)
 
+    image_path = sys.argv[1] if len(sys.argv) == 2 else "models/empirical_data.png"
     image = load_image(image_path)
 
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -119,9 +127,8 @@ def main():
     data_points = get_data_points(ax)
     plt.close(fig)
 
-    rho_values, v_values = convert_points(data_points, px_to_real)
-    save_numpy_arrays(output_path, rho_values, v_values)
-
+    rho_values, velocity_values = convert_points(data_points, px_to_real)
+    save_numpy_arrays(rho_values, velocity_values)
 
 if __name__ == "__main__":
     main()
