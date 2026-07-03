@@ -52,16 +52,16 @@ python -m analysis.plotting
 
 ### 3. Check the results
 
-Generated figures will be saved to the output directory specified in `analysis/config.py`.
-
-By default, the output directory is:
+By default, generated figures are saved in:
 
 ```text
 results/
 ```
-This folder already contains the figures generated from our experimental setup.  
-When you run new experiments, the newly generated figures will also be saved to the same folder. Generated figures output directory specified in `analysis/config.py`.
 
+This folder already contains the figures generated from our experimental setup.
+When you run new experiments, the newly generated figures will also be saved to the same folder.
+
+The output directory can be changed in `analysis/config.py`.
 
 
 ## Extracting empirical data
