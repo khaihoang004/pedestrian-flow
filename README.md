@@ -14,9 +14,10 @@ pedestrian-flow/
 ├─ models/
 │  ├─ empirical.py       # empirical reference data / empirical velocity curve
 │  ├─ empirical_data.png # source image for empirical data extraction
-│  └─ social_force.py    # simulation models and core numerical routines
+│  ├─ social_force.py    # simulation models and core numerical routines
 │  └─ plot_digitizer.py
 ├─ results/              # default generated figures folder path
+├─ demo.html             # interactive browser demo 
 ├─ requirements.txt
 └─ README.md
 ```
@@ -81,3 +82,9 @@ Using a custom image:
 ```bash
 python -m models.plot_digitizer path/to/your_image.png
 ```
+
+## Interactive HTML demo
+
+The file `demo.html` provides a browser-based interactive demo of the pedestrian flow model.
+
+Run the demo by open `demo.html` in a web browser.

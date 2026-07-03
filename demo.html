@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1D Pedestrian Flow - Top Controls Layout</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-body: #f8fafc;
+            --surface: #ffffff;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --wave-bg: #fee2e2;
+            --stable: #10b981;
+            --stable-bg: #d1fae5;
+            --font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 12px 20px;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1350px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* --- Header --- */
+        header {
+            margin-bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .header-title h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .header-title p {
+            margin: 2px 0 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* --- Top Controls --- */
+        .top-controls {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .top-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .info-box {
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-left: 3px solid var(--primary);
+            margin: 0;
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-group span {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+            margin: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: var(--primary);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(18px);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: var(--font-family);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-body);
+        }
+
+        .btn-danger {
+            background: var(--wave-bg);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #fecaca;
+        }
+
+        .sliders-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 16px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        .control-group label span {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            margin: 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+
+        /* --- Main Content (Left Stats + Right Visuals) --- */
+        .main-content {
+            display: grid;
+            grid-template-columns: 200px minmax(0, 1fr);
+            gap: 15px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* --- Left Stats --- */
+        .left-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .status-badge {
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 60px;
+            text-align: center;
+        }
+
+        .status-badge.stable {
+            background-color: var(--stable-bg);
+            color: var(--stable);
+            border: 1px solid #bbf7d0;
+        }
+
+        .status-badge.wave {
+            background-color: var(--wave-bg);
+            color: var(--danger);
+            border: 1px solid #fecaca;
+        }
+
+        /* --- Right Visuals --- */
+        .visual-stack {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 0;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        .visual-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .visual-panel.corridor {
+            height: 120px;
+            flex-shrink: 0;
+        }
+
+        .visual-panel.plot {
+            flex: 1;
+            min-height: 0;
+        }
+
+        h3 {
+            margin: 0 0 8px 0;
+            font-size: 0.95rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+        }
+
+        .canvas-wrapper {
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1>Pedestrian Flow Simulation</h1>
+                <p>1D Microscopic Model</p>
+            </div>
+        </header>
+
+        <div class="top-controls">
+            <div class="top-actions">
+                <div class="info-box">
+                    Fixed <strong>v₀</strong> : Normal Distribution <code>N(1.24, 0.05)</code>
+                </div>
+                <div class="toggle-group">
+                    <span>Use Remote Action</span>
+                    <label class="switch">
+                        <input type="checkbox" id="useRemote" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="btn-group">
+                    <button class="btn-primary" id="btnPlay">Pause</button>
+                    <button class="btn-outline" id="btnStep">Step</button>
+                    <button class="btn-danger" id="btnReset">Reset</button>
+                </div>
+            </div>
+
+            <div class="sliders-row">
+                <div class="control-group">
+                    <label>Pedestrians (N) <span id="valN">21</span></label>
+                    <input type="range" id="paramN" min="2" max="45" step="1" value="21">
+                </div>
+                <div class="control-group">
+                    <label>Core Size (a) <span><span id="valA">0.36</span> m</span></label>
+                    <input type="range" id="paramA" min="0.1" max="0.8" step="0.01" value="0.36">
+                </div>
+                <div class="control-group">
+                    <label>Safe Factor (b) <span><span id="valB">0.56</span> s</span></label>
+                    <input type="range" id="paramB" min="0.0" max="1.5" step="0.02" value="0.56">
+                </div>
+                <div class="control-group">
+                    <label>Relax Time (τ) <span><span id="valTau">0.61</span> s</span></label>
+                    <input type="range" id="paramTau" min="0.1" max="2.0" step="0.01" value="0.61">
+                </div>
+                <div class="control-group">
+                    <label>Repul. Strength (e) <span id="valE">0.07</span></label>
+                    <input type="range" id="paramE" min="0.0" max="0.5" step="0.01" value="0.07">
+                </div>
+                <div class="control-group">
+                    <label>Repul. Range (f) <span id="valF">2.0</span></label>
+                    <input type="range" id="paramF" min="1.0" max="5.0" step="0.1" value="2.0">
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="left-stats">
+                <div class="stat-card">
+                    <div class="stat-label">Density (ρ)</div>
+                    <div class="stat-value" id="statDensity">1.21 <span
+                            style="font-size: 0.8rem; font-weight:400; color:#64748b;">m⁻¹</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Speed (v)</div>
+                    <div class="stat-value" id="statSpeed">0.00 <span
+                            style="font-size: 0.8rem; font-weight:400; color:#64748b;">m/s</span></div>
+                </div>
+                <div id="waveBadge" class="status-badge stable">
+                    System Stable
+                </div>
+            </div>
+
+            <div class="visual-stack">
+                <div class="visual-panel corridor">
+                    <h3>Corridor Tracker (L = 17.3m)</h3>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top:-6px; margin-bottom: 6px;">
+                        Click a dot to track. Red dots = stopped (v_i = 0).
+                    </p>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvasCorridor" width="1000" height="60"></canvas>
+                    </div>
+                </div>
+
+                <div class="visual-panel plot">
+                    <h3>Spatio-Temporal Plot (Paper Style)</h3>
+                    <div class="canvas-wrapper">
+                        <canvas id="canvasPlot" width="1000" height="360"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const L = 17.3;
+        const dt = 0.001;
+        const v0_mean = 1.24;
+        const v0_std = 0.05;
+
+        let N, a, b, tau, e, f, useRemote;
+        let x = [], v = [], v0 = [];
+        let isJammed = [];
+
+        let isPlaying = true;
+        let stepCount = 0;
+        let avgV = 0;
+
+        let plotHistoryX = [];
+        let plotHistoryW = [];
+        const maxHistory = 40;
+
+        let highlightIdx = 0;
+
+        const canvasCorridor = document.getElementById('canvasCorridor');
+        const ctxCorridor = canvasCorridor.getContext('2d');
+        const canvasPlot = document.getElementById('canvasPlot');
+        const ctxPlot = canvasPlot.getContext('2d');
+
+        const ids = ['N', 'A', 'B', 'Tau', 'E', 'F'];
+        const inputs = {};
+        const labels = {};
+        ids.forEach(id => {
+            inputs[id] = document.getElementById('param' + id);
+            labels[id] = document.getElementById('val' + id);
+            inputs[id].addEventListener('input', () => updateParams(id === 'N' || id === 'A'));
+        });
+
+        const useRemoteToggle = document.getElementById('useRemote');
+        useRemoteToggle.addEventListener('change', () => { useRemote = useRemoteToggle.checked; });
+
+        canvasCorridor.addEventListener('click', (e) => {
+            const rect = canvasCorridor.getBoundingClientRect();
+            const scaleX = canvasCorridor.width / rect.width;
+            const scaleY = canvasCorridor.height / rect.height;
+
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            const cw = canvasCorridor.width;
+            const ch = canvasCorridor.height;
+            const trackWidth = cw - 80;
+
+            if (Math.abs(mouseY - ch / 2) > 20) return;
+
+            let clickedIdx = -1;
+            let minDistance = Infinity;
+
+            for (let i = 0; i < N; i++) {
+                const drawX = 40 + (x[i] / L) * trackWidth;
+                const dist = Math.abs(mouseX - drawX);
+
+                if (dist < 15 && dist < minDistance) {
+                    minDistance = dist;
+                    clickedIdx = i;
+                }
+            }
+
+            if (clickedIdx !== -1) {
+                highlightIdx = clickedIdx;
+                drawCorridor();
+                drawPlot();
+            }
+        });
+
+        function gaussian(mean, std) {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+        }
+
+        function updateParams(requiresHardReset = false) {
+            N = parseInt(inputs.N.value);
+            a = parseFloat(inputs.A.value);
+            b = parseFloat(inputs.B.value);
+            tau = parseFloat(inputs.Tau.value);
+            e = parseFloat(inputs.E.value);
+            f = parseFloat(inputs.F.value);
+            useRemote = useRemoteToggle.checked;
+
+            ids.forEach(id => { labels[id].innerText = inputs[id].value; });
+
+            const maxN = Math.floor(L / a);
+            if (N > maxN) {
+                N = maxN;
+                inputs.N.value = N;
+                labels.N.innerText = N;
+            }
+
+            document.getElementById('statDensity').innerHTML = `${(N / L).toFixed(2)} <span style="font-size: 0.8rem; font-weight:400; color:#64748b;">m⁻¹</span>`;
+
+            if (requiresHardReset) {
+                initSimulation();
+            }
+        }
+
+        function initSimulation() {
+            x = []; v = []; v0 = []; isJammed = [];
+            plotHistoryX = []; plotHistoryW = [];
+            stepCount = 0;
+            highlightIdx = Math.floor(N / 2);
+
+            let attempts = 0;
+            while (x.length < N && attempts < 10000) {
+                attempts++;
+                const candidate = Math.random() * L;
+                let valid = true;
+                for (const p of x) {
+                    let dist = Math.abs(candidate - p);
+                    dist = Math.min(dist, L - dist);
+                    if (dist < a) { valid = false; break; }
+                }
+                if (valid) x.push(candidate);
+            }
+            x.sort((A, B) => A - B);
+
+            for (let i = 0; i < N; i++) {
+                v.push(0.0);
+                v0.push(Math.max(0.5, gaussian(v0_mean, v0_std)));
+                isJammed.push(false);
+            }
+        }
+
+        function getDistance(i, positions) {
+            return (positions[(i + 1) % N] - positions[i] + L) % L;
+        }
+
+        function stepPhysics() {
+            const forces = [];
+            let waveCount = 0;
+
+            for (let i = 0; i < N; i++) {
+                const d_i = a + b * v[i];
+                const s = getDistance(i, x);
+
+                if (!useRemote) {
+                    forces.push(s > d_i ? (v0[i] - v[i]) / tau : -v[i] / dt);
+                } else {
+                    const gap = Math.max(1e-6, s - d_i);
+                    const repulsion = e / Math.pow(gap, f);
+                    const G = (v0[i] - v[i]) / tau - repulsion;
+                    forces.push(v[i] > 0 ? G : Math.max(0, G));
+                }
+
+                isJammed[i] = (v[i] === 0);
+                if (isJammed[i]) waveCount++;
+            }
+
+            const x_new = [];
+            const v_new = [];
+
+            for (let i = 0; i < N; i++) {
+                let vTemp = v[i] + dt * forces[i];
+                vTemp = Math.min(Math.max(0, vTemp), v0[i]);
+                v_new.push(vTemp);
+                x_new.push((x[i] + vTemp * dt) % L);
+            }
+
+            if (!useRemote) {
+                let changed = true;
+                while (changed) {
+                    changed = false;
+                    for (let i = N - 1; i >= 0; i--) {
+                        const next = (i + 1) % N;
+                        const d_i = a + b * v_new[i];
+                        const s = (x_new[next] - x_new[i] + L) % L;
+                        if (s < d_i) {
+                            v_new[i] = 0;
+                            x_new[i] = x[i];
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            v = v_new;
+            x = x_new;
+
+            if (stepCount % 50 === 0) {
+                avgV = v.reduce((sum, val) => sum + val, 0) / N;
+                document.getElementById('statSpeed').innerHTML = `${avgV.toFixed(2)} <span style="font-size: 0.8rem; font-weight:400; color:#64748b;">m/s</span>`;
+
+                const badge = document.getElementById('waveBadge');
+                if (waveCount > Math.max(2, N * 0.10)) {
+                    badge.innerHTML = `⚠ Jams Detected`;
+                    badge.className = "status-badge wave";
+                } else {
+                    badge.innerHTML = "System Stable";
+                    badge.className = "status-badge stable";
+                }
+            }
+
+            if (stepCount % 150 === 0) {
+                plotHistoryX.push([...x]);
+                plotHistoryW.push([...isJammed]);
+                if (plotHistoryX.length > maxHistory) {
+                    plotHistoryX.shift();
+                    plotHistoryW.shift();
+                }
+            }
+            stepCount++;
+        }
+
+        function drawCorridor() {
+            const cw = canvasCorridor.width;
+            const ch = canvasCorridor.height;
+            ctxCorridor.clearRect(0, 0, cw, ch);
+
+            ctxCorridor.strokeStyle = '#e2e8f0';
+            ctxCorridor.lineWidth = 14;
+            ctxCorridor.lineCap = 'round';
+            ctxCorridor.beginPath();
+            ctxCorridor.moveTo(40, ch / 2);
+            ctxCorridor.lineTo(cw - 40, ch / 2);
+            ctxCorridor.stroke();
+
+            const trackWidth = cw - 80;
+
+            for (let i = 0; i < N; i++) {
+                const drawX = 40 + (x[i] / L) * trackWidth;
+                
+                ctxCorridor.fillStyle = '#0f172a';
+                ctxCorridor.font = '12px Inter';
+                ctxCorridor.textAlign = 'center';
+                ctxCorridor.fillText(
+                    `${i + 1}`,
+                    drawX,
+                    ch / 2 - 12
+                );
+                
+                ctxCorridor.beginPath();
+                ctxCorridor.arc(drawX, ch / 2, 6, 0, Math.PI * 2);
+
+                if (i === highlightIdx) {
+                    ctxCorridor.fillStyle = isJammed[i] ? '#ef4444' : '#0f172a';
+                } else {
+                    ctxCorridor.fillStyle = isJammed[i] ? '#f87171' : '#3b82f6';
+                }
+
+                ctxCorridor.fill();
+
+                if (i === highlightIdx) {
+                    ctxCorridor.lineWidth = 2;
+                    ctxCorridor.strokeStyle = '#000000';
+                    ctxCorridor.stroke();
+                }
+            }
+        }
+
+        function drawPlot() {
+            const cw = canvasPlot.width;
+            const ch = canvasPlot.height;
+            ctxPlot.clearRect(0, 0, cw, ch);
+
+            const padX = 50, padY = 35;
+            const w = cw - 2 * padX;
+            const h = ch - 2 * padY;
+
+            ctxPlot.strokeStyle = '#000000';
+            ctxPlot.lineWidth = 1;
+            ctxPlot.strokeRect(padX, padY, w, h);
+
+            ctxPlot.fillStyle = '#000000';
+            ctxPlot.font = '14px Inter';
+            ctxPlot.textAlign = 'center';
+            ctxPlot.fillText("L", padX + w / 2, ch - 8);
+
+            ctxPlot.textAlign = 'center';
+            ctxPlot.fillText("t", padX - 25, padY + 10);
+
+            ctxPlot.beginPath();
+            ctxPlot.moveTo(padX - 25, padY + 18);
+            ctxPlot.lineTo(padX - 25, padY + 38);
+            ctxPlot.lineTo(padX - 29, padY + 33);
+            ctxPlot.moveTo(padX - 25, padY + 38);
+            ctxPlot.lineTo(padX - 21, padY + 33);
+            ctxPlot.stroke();
+
+            const radius = 2.5;
+
+            for (let t = 0; t < plotHistoryX.length; t++) {
+                const drawY = padY + (t / maxHistory) * h;
+
+                for (let i = 0; i < N; i++) {
+                    const posX = plotHistoryX[t][i];
+                    const state = plotHistoryW[t][i];
+                    const drawX = padX + (posX / L) * w;
+
+                    ctxPlot.beginPath();
+                    ctxPlot.arc(drawX, drawY, radius, 0, Math.PI * 2);
+
+                    if (i === highlightIdx) {
+                        ctxPlot.fillStyle = state ? '#ef4444' : '#0f172a';
+                        ctxPlot.fill();
+                    } else {
+                        ctxPlot.strokeStyle = state ? '#ef4444' : '#64748b';
+                        ctxPlot.lineWidth = 1.2;
+                        ctxPlot.stroke();
+                    }
+                }
+            }
+        }
+
+        function render() {
+            if (isPlaying) {
+                for (let i = 0; i < 20; i++) stepPhysics();
+            }
+            drawCorridor();
+            drawPlot();
+            requestAnimationFrame(render);
+        }
+
+        document.getElementById('btnPlay').addEventListener('click', (e) => {
+            isPlaying = !isPlaying;
+            e.target.innerText = isPlaying ? "Pause" : "Play";
+            e.target.className = isPlaying ? "btn-primary" : "btn-outline";
+        });
+
+        document.getElementById('btnStep').addEventListener('click', () => {
+            if (!isPlaying) { for (let i = 0; i < 20; i++) stepPhysics(); }
+        });
+
+        document.getElementById('btnReset').addEventListener('click', () => {
+            updateParams(true);
+        });
+
+        updateParams(true);
+        render();
+
+    </script>
+</body>
+
+</html>
